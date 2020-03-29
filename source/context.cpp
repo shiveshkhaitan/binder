@@ -291,7 +291,7 @@ string file_name_prefix_for_binder(BinderOP &b)
 
 	string include = relevant_include(decl);
 
-	if( include.size() <= 2 ) { include = "<unknown/unknown.hh>";  outs() << "Warning: file_name_prefix_for_binder could not determent file name for decl: " + string(*b) + ", result is too short!\n"; } //throw std::runtime_error( "file_name_for_decl failed!!! include name for decl: " + string(*b) + " is too short!");
+	if( include.size() <= 2 ) { include = "<unknown/unknown.hh>";  /*outs() << "Warning: file_name_prefix_for_binder could not determent file name for decl: " + string(*b) + ", result is too short!\n";*/ } //throw std::runtime_error( "file_name_for_decl failed!!! include name for decl: " + string(*b) + " is too short!");
 	include = include.substr(1, include.size()-2);
 
 	if( namespace_from_named_decl(decl) == "std"  or  begins_with(namespace_from_named_decl(decl), "std::" ) ) include = "std/" +  ( begins_with(include, "bits/") ? include.substr(5) : include );
@@ -373,7 +373,7 @@ void Context::generate(Config const &config)
 	for(uint i=0; i<binders.size(); ++i) {
 		if( /*binders[i]->is_binded()  and*/  binders[i]->code().size() ) {
 			string np = file_name_prefix_for_binder(binders[i]);
-			if (np.find("unknown\0") != std::string::npos) {
+			if (np.find("unknown\0") != std::string::npos || np.find("boost\0") != std::string::npos) {
 			  continue;
 			}
 			string file_name = np + ( file_names[np] ? "_"+std::to_string(file_names[np]) : "" );
