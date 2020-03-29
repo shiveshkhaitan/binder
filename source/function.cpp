@@ -260,7 +260,7 @@ vector<QualType> get_type_dependencies(FunctionDecl const *F)
 /// check if user requested binding for the given declaration
 bool is_binding_requested(FunctionDecl const *F, Config const &config)
 {
-	bool bind = config.is_function_binding_requested( F->getQualifiedNameAsString() ) or  config.is_function_binding_requested( function_qualified_name(F) )  or  config.is_namespace_binding_requested( namespace_from_named_decl(F) );
+	bool bind = config.is_function_binding_requested( F->getQualifiedNameAsString() ) or  config.is_function_binding_requested( function_qualified_name(F) );
 
 	for(auto & t : get_type_dependencies(F) ) bind |= binder::is_binding_requested(t, config);
 
