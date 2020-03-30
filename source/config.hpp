@@ -34,7 +34,7 @@ class Config
 	Config(string const &root_module_, std::vector<string> namespaces_to_bind_, std::vector<string> namespaces_to_skip_, string const &prefix_, std::size_t maximum_file_length_) :
 		root_module(root_module_), namespaces_to_bind(namespaces_to_bind_), namespaces_to_skip(namespaces_to_skip_), prefix(prefix_), maximum_file_length(maximum_file_length_) {}
 
-private:
+public:
 	std::map<string, string> binders_, add_on_binders_;
 	std::map<string, string> binder_for_namespaces_, add_on_binder_for_namespaces_;
 
@@ -49,7 +49,6 @@ private:
 	string default_member_rvalue_reference_return_value_policy_ = "pybind11::return_value_policy::automatic";
 	string default_call_guard_ = "";
 
-public:
 	static Config &get();
 
 	/// Read config setting from the file

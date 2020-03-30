@@ -117,14 +117,83 @@ public:
 		config.namespaces_to_bind = O_bind;
 		config.namespaces_to_skip = O_skip;
 
-		if( O_config.size() ) config.read(O_config);
+//		if( O_config.size() ) config.read(O_config);
 		if( O_suppress_errors )	{
 			clang::DiagnosticsEngine& di = ci->getDiagnostics();
 			di.setSuppressAllDiagnostics();
 		}
-	}
+
+		config.includes_to_add.push_back("<binder/stl_binders.hpp>");
+		config.includes_to_add.push_back("<pybind11/chrono.h>");
+		config.includes_to_add.push_back("<pybind11/eigen.h>");
+
+    config.binders_["std::vector"] = "binder::vector_binder";
+
+    config.namespaces_to_skip.push_back("boost");
+
+    config.includes_to_skip.push_back("<bits/std_mutex.h>");
+    config.includes_to_skip.push_back("<boost/function/function_template.hpp>");
+    config.includes_to_skip.push_back("<boost/signals2/connection.hpp>");
+    config.includes_to_skip.push_back("<boost/signals2/detail/lwm_pthreads.hpp>");
+    config.includes_to_skip.push_back("<boost/signals2/detail/slot_groups.hpp>");
+    config.includes_to_skip.push_back("<boost/signals2/detail/slot_template.hpp>");
+    config.includes_to_skip.push_back("<boost/signals2/trackable.hpp>");
+    config.includes_to_skip.push_back("<boost/smart_ptr/detail/sp_counted_base_clang.hpp>");
+    config.includes_to_skip.push_back("<boost/smart_ptr/shared_ptr.hpp>");
+    config.includes_to_skip.push_back("<boost/smart_ptr/weak_ptr.hpp>");
+    config.includes_to_skip.push_back("<boost/variant/variant.hpp>");
+    config.includes_to_skip.push_back("<ext/string_conversions.h>");
+  }
 
 	virtual ~BinderVisitor() {}
+
+  // Generate string representation of given TemplateArgument
+  string template_argument_to_string(clang::TemplateArgument const &t)
+  {
+    clang::LangOptions lang_opts;
+    lang_opts.CPlusPlus = true;
+    clang::PrintingPolicy Policy(lang_opts);
+
+    std::string _;
+    llvm::raw_string_ostream s(_);
+    t.print(Policy, s);
+    return s.str();
+  }
+
+// replace all _Bool types with bool
+  void fix_boolean_types(string &type)
+  {
+    string B("_Bool");
+    size_t i = 0;
+    while( ( i = type.find(B, i) ) != string::npos ) {
+      if( ( i==0  or ( !std::isalpha(type[i-1]) and  !std::isdigit(type[i-1]) ) ) and
+          ( i+B.size() == type.size()  or ( !std::isalpha(type[i+B.size()]) and  !std::isdigit(type[i+B.size()]) ) ) ) type.replace(i, B.size(), "bool");
+      ++i;
+    }
+  }
+
+  string template_specialization(clang::CXXRecordDecl const *C)
+  {
+    string templ;
+
+    if( auto t = dyn_cast<ClassTemplateSpecializationDecl>(C) ) {
+      templ += "<";
+
+      for(uint i=0; i < t->getTemplateArgs().size(); ++i) {
+        //if( t->getTemplateArgs()[i].isInstantiationDependent() ) break;  // avoid explicitly specifying SFINAE related arguments
+
+        //outs() << " template argument: " << template_argument_to_string(t->getTemplateArgs()[i]) << "\n";
+        templ += template_argument_to_string(t->getTemplateArgs()[i]) + ",";
+
+        //if( t->getTemplateArgs()[i].ArgKind() == TemplateArgument::ArgKind::Integral ) outs() << " template arg:" << t->getTemplateArgs()[i].<< "\n";
+        //outs() << expresion_to_string( t->getTemplateArgs()[i].getAsExpr() ) << "\n";
+      }
+      templ.back() = '>';
+    }
+
+    fix_boolean_types(templ);
+    return templ;
+  }
 
 	bool shouldVisitTemplateInstantiations () const { return true; }
 
@@ -140,6 +209,28 @@ public:
 			context.add_insertion_operator(F);
 		}
 
+    LangOptions LO;
+    PrintingPolicy Policy(LO);
+
+    string funcName = F->getNameInfo().getName().getAsString();
+    AttrVec attr_vec = F->getAttrs();
+
+    if (F->getQualifiedNameAsString().rfind("pcl::\0", 0) != 0) {
+      return true;
+    }
+
+    for (auto attr : attr_vec) {
+      std::string s;
+      llvm::raw_string_ostream func_attribute(s);
+      attr->printPretty(func_attribute, Policy);
+
+      if (strcmp(func_attribute.str().c_str(), " __attribute__((visibility(\"default\")))\0") == 0) {
+        Config & config = Config::get();
+        config.functions_to_bind.push_back(F->getQualifiedNameAsString());
+        return true;
+      }
+    }
+
         return true;
     }
 
@@ -151,6 +242,25 @@ public:
 			context.add(b);
 		}
 
+    LangOptions LO;
+    PrintingPolicy Policy(LO);
+
+    if (C->getQualifiedNameAsString().rfind("pcl::\0", 0) != 0) {
+      return true;
+    }
+
+    AttrVec attr_vec = C->getAttrs();
+    for (auto attr : attr_vec) {
+      std::string s;
+      llvm::raw_string_ostream func_attribute(s);
+      attr->printPretty(func_attribute, Policy);
+
+      if (strcmp(func_attribute.str().c_str(), " __attribute__((visibility(\"default\")))\0") == 0) {
+        Config & config = Config::get();
+        config.classes_to_bind.push_back(C->getQualifiedNameAsString() + template_specialization(C));
+        return true;
+      }
+    }
         return true;
     }
 
