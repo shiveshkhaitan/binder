@@ -373,7 +373,7 @@ void Context::generate(Config const &config)
 	for(uint i=0; i<binders.size(); ++i) {
 		if( /*binders[i]->is_binded()  and*/  binders[i]->code().size() ) {
 			string np = file_name_prefix_for_binder(binders[i]);
-			if (np.find("unknown\0") != std::string::npos || np.find("boost\0") != std::string::npos) {
+			if (np.find("unknown\0") != std::string::npos || np.find("boost\0") != std::string::npos || np.find("complex\0") != std::string::npos) {
 			  continue;
 			}
 			string file_name = np + ( file_names[np] ? "_"+std::to_string(file_names[np]) : "" );
